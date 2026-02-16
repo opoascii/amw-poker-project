@@ -8,15 +8,11 @@ body{
 .player{
     height: 40%;
     width: 10%;
-    /* background-color: black; */
     place-items: center;
-    /* background-color: #f5f5f5; */
-    /* border: 2px solid #ddd; */
     border-radius: 8px;
     padding: 10px;
     margin: 10px;
     text-align: center;
-    /* box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); */
     padding-top: 0px;
 }
 
@@ -123,7 +119,7 @@ body{
 
 .row_a {
     position: relative;
-    top: -5vh;
+    top: -6vh;
     display: flex;
     align-items: center;
     justify-content: center; 
@@ -131,7 +127,7 @@ body{
 
 .row_b {
     position: relative;
-    top: -36vh;
+    top: -39vh;
     display: flex;
     align-items: center;
     justify-content: center; 
@@ -139,9 +135,9 @@ body{
 
 #potImg {
     position: relative;
-    width: 7vw;
-    height: 15vh;
-    top: -6vh;
+    width: 5vw;
+    height: 12vh;
+    top: -7vh;
 }
 #potAmount {
     position: relative;
@@ -153,7 +149,7 @@ body{
     position: relative;
     color: goldenrod;
     font-size: 5vw;
-    left: 1vw;
+    left: 0.5vw;
 }
 
 #deckd {
