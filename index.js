@@ -334,7 +334,7 @@ class DealCards {
 }  
 
 class Hand {
-    constructor(littleBlind=0, testBoard = []) {
+    constructor(littleBlind=0, simulation=false, testBoard = []) {
         this.activePlayers = players.filter(player => player.active === true);
         this.littleBlind = littleBlind;
         this.bigBlind = (this.littleBlind + 1) % this.activePlayers.length;
@@ -352,6 +352,7 @@ class Hand {
         this.card4 = this.dealtCards.board[3];
         this.card5 = this.dealtCards.board[4];
 
+        this.simulation = simulation;
         this.active = true;
         this.totalVar = 0;
         this.pot = 0;
@@ -360,7 +361,10 @@ class Hand {
         this.currentPots = [];
         this.callAmount = 0;
         this.playerQueue = [];
-
+        this.delayTime = 1000;
+        if (simulation) {
+            this.delayTime = 0;
+        }
         for (let p of this.activePlayers) {
             Frontend.showCards(p.id);
             p.betThisHand = 0;
@@ -394,9 +398,23 @@ class Hand {
         Frontend.hideBlinds(this.activePlayers[this.littleBlind].id);
         Frontend.hideBlinds(this.activePlayers[this.bigBlind].id);
         await this.endRound();
+        if (this.simulation) {
+            let totalAmount = 0;
+            for (let p of this.activePlayers) {
+                totalAmount += p.wonThisHand;
+                if (p.wonThisHand != p.money - p.moneyi || p.money < 0) {
+                    console.log("error in simulation results");
+                    console.log(p.id + " " + p.name + " initial: " + p.moneyi + " final: " + p.money + " bth: " + p.betThisHandCopy + " wth " + p.wonThisHand);
+                    throw new Error("simulation error");
+                }
+            }
+            if (totalAmount > 1 || totalAmount < -1) {  
+                throw new Error("simulation error in total amount");
+            }
+        }
     }
     
-    async bettingRound(cards){
+    async bettingRound(cards) {
         for (let i = 1; i <= 5; i++) {
             Frontend.changeImage('card' + i.toString() + 'Image', Utils.translateCard(cards[i - 1]));
         }
@@ -439,7 +457,7 @@ class Hand {
                 console.log("one active rest folded");
                 continue;
             } else if (this.callAmount == player.betThisRound && this.activePlayers.filter(p => p.inRound).length == 1) {
-                await this.delay(1000);
+                await this.delay(this.delayTime);
                 console.log("one active with all ins");
                 continue;
             }
@@ -452,7 +470,7 @@ class Hand {
             console.log("player btr " + player.betThisRound);
             console.log("player money " + player.money);
 
-            if (player.isrobot) {
+            if (this.simulation || player.isrobot) {
                 playerAction = await this.cpuMove(player, players[0]);
                 console.log("cpu " + player.id + " action " + playerAction);
             } else {
@@ -460,7 +478,7 @@ class Hand {
                 this.actionHandler(player);
                 playerAction = await this.promptMove(player);
                 this.showAction(player, playerAction);
-                await this.delay(1000);
+                await this.delay(this.delayTime);
                 Frontend.hideDiv(player.id + "action");
                 Frontend.changeTextContent("checkcallDisplay", "Check");
                 console.log("user " + player.id + " action " + playerAction);
@@ -602,6 +620,9 @@ class Hand {
         for (let i of foldedPlayers) {
             console.log("folded " + i.id + " " + i.name + " initial: " + i.moneyi + " final: " + i.money + " bth: " + i.betThisHandCopy + "wth " + i.wonThisHand);
         }
+        if (this.simulation) {
+            return;
+        }
         await this.showEndDisplay([...inHandPlayers, ...foldedPlayers]);
         return;
     }
@@ -615,8 +636,8 @@ class Hand {
         let allInThreshold;
         let raiseThreshold;
         let callThreshold;
-        await this.delay(1000);
-        if (this.callAmount >= player.money + player.betThisHand) {
+        await this.delay(this.delayTime);
+        if (this.callAmount >= player.money + player.betThisRound) {
             allInThreshold = 0.3
             if (human.rank > player.rank) {
                 allInThreshold += 0.2
@@ -665,7 +686,7 @@ class Hand {
                 if (randNum > allInThreshold) {
                     playerAction = ["allIn", player.money]
                 } else if (randNum > raiseThreshold) {
-                    playerAction = ["raise", Math.ceil((player.money + player.betThisHand - this.callAmount) * 0.2)]
+                    playerAction = ["raise", Math.ceil((player.money + player.betThisRound - this.callAmount) * 0.2)]
                 } else if (randNum > callThreshold) {
                     playerAction = ["checkcall", 0]
                 } else {
@@ -676,7 +697,7 @@ class Hand {
         }
         console.log(playerAction)
         this.showAction(player, playerAction);
-        await this.delay(1000);
+        await this.delay(this.delayTime);
         Frontend.hideDiv(player.id + "action");
         return playerAction;
     }
@@ -1123,7 +1144,7 @@ class Orbit {
     constructor() {
         this.activePlayers = players.filter(player => player.active === true)
     }
-    async initialize() {
+    async initialize(simulation=false) {
         Frontend.hideDiv("allIn");
         Frontend.showDiv("raise");
         let prevLittle = players.length - 1;
@@ -1140,9 +1161,16 @@ class Orbit {
                 }
             }
             prevLittle = little;
-            let hand = new Hand(activeLittle);
+            let hand = new Hand(activeLittle, simulation);
             await hand.initialize();
             this.activePlayers = players.filter(player => player.active === true);
+        }
+        if (simulation) {
+            console.log("simulation ended, restarting");
+            for (let p of players) {
+                console.log(p.id + ", " + p.money);
+            }
+            return;
         }
     
         if (this.activePlayers[0].id == "p1") {
@@ -1154,7 +1182,8 @@ class Orbit {
             Frontend.changeImage("winnerImg", "images/player" + this.activePlayers[0].id[1] + ".png");
         }
         
-        Frontend.showDiv("winnerContainer")
+        Frontend.showDiv("winnerContainer");
+        return;
     }
 
 }
@@ -1255,10 +1284,27 @@ class Test {
         h.evaluateHand([p]);
     }
     static testGivenBoard(board) {
-        let h = new Hand(0, board);
+        let h = new Hand(0, false, board);
         h.initialize();
     }
-    
+}
+async function simulate() {
+    while (true) {
+        Frontend.hideDiv("winnerContainer");
+        Frontend.hideDiv("endDisplay");
+        p1 = new Player(false, username, 'p1', localStorage.getItem("charSelect"), money=200);
+        p2 = new Player(true, "Stephen", 'p2', 'images/player2.png', money=200);
+        p3 = new Player(true, "Alyssa", 'p3', 'images/player3.png', money=200);
+        p4 = new Player(true, "Eric", 'p4', 'images/player4.png', money=200);
+        p5 = new Player(true, "Alex", 'p5', 'images/player5.png', money=200);
+
+        players = [p1, p3, p2, p5, p4];
+        for (let p of players) {
+            Frontend.showDiv(p.id);
+        }
+        let orbit = new Orbit;
+        await orbit.initialize(true);
+    }
 }
 
 function test() {
@@ -1320,4 +1366,5 @@ function test() {
     // Test.testGivenBoard([['S', '4'], ['D', '5'], ['C', '8'], ['S', '6'], ['H', '7']]);
 }
 // test();
+// simulate();
 main();
