@@ -91,8 +91,6 @@ function goToGame() {
     username = document.getElementById("textInput").value;
     localStorage.setItem("username", username);
     localStorage.setItem("charSelect", charSelect);
-    // window.location.href = "index.html"
-
 }
 
 function startPage() {
@@ -115,10 +113,6 @@ function updateSlider() {
     }
 }
 
-async function closeEndContent() {
-    
-}
-
 var userResponse = false;
 var playerInTurn;
 let callAmt;
@@ -128,7 +122,6 @@ const bbAmount = 2;
 
 function setUserAction(action) {
     console.log("setUserAction")
-
 }
 
 function waitUserAction() {
@@ -334,7 +327,7 @@ class DealCards {
 }  
 
 class Hand {
-    constructor(littleBlind=0, testBoard = []) {
+    constructor(littleBlind=0, testBoard=[], simulation=false) {
         this.activePlayers = players.filter(player => player.active === true);
         this.littleBlind = littleBlind;
         this.bigBlind = (this.littleBlind + 1) % this.activePlayers.length;
@@ -360,6 +353,11 @@ class Hand {
         this.currentPots = [];
         this.callAmount = 0;
         this.playerQueue = [];
+        this.simulation = simulation;
+        this.sleepTime = 1000;
+        if (this.simulation) {
+            this.sleepTime = 0;
+        }
 
         for (let p of this.activePlayers) {
             Frontend.showCards(p.id);
@@ -375,7 +373,6 @@ class Hand {
             p.inHand = true;
             p.betThisHandCopy = 0;
         }
-
     }
 
     async initialize() {
@@ -439,7 +436,7 @@ class Hand {
                 console.log("one active rest folded");
                 continue;
             } else if (this.callAmount == player.betThisRound && this.activePlayers.filter(p => p.inRound).length == 1) {
-                await this.delay(1000);
+                await this.delay(this.sleepTime);
                 console.log("one active with all ins");
                 continue;
             }
@@ -452,7 +449,7 @@ class Hand {
             console.log("player btr " + player.betThisRound);
             console.log("player money " + player.money);
 
-            if (player.isrobot) {
+            if (this.simulation || player.isrobot) {
                 playerAction = await this.cpuMove(player, players[0]);
                 console.log("cpu " + player.id + " action " + playerAction);
             } else {
@@ -460,7 +457,7 @@ class Hand {
                 this.actionHandler(player);
                 playerAction = await this.promptMove(player);
                 this.showAction(player, playerAction);
-                await this.delay(1000);
+                await this.delay(this.sleepTime);
                 Frontend.hideDiv(player.id + "action");
                 Frontend.changeTextContent("checkcallDisplay", "Check");
                 console.log("user " + player.id + " action " + playerAction);
@@ -483,7 +480,6 @@ class Hand {
             }
             this.updateFrontend(player);
         }
-        
     }
 
     async promptMove(p) {
@@ -579,8 +575,9 @@ class Hand {
         console.log(finalPlayers);
         for (let i = 0; i < finalAmounts.length; i++) {
             for (let j = 0; j < finalPlayers[i].length; j++) {
-                finalPlayers[i][j].money += Math.round(finalPots[i] / finalPlayers[i].length);
-                finalPlayers[i][j].wonThisHand += Math.round(finalPots[i] / finalPlayers[i].length);
+                // house takes anything left over
+                finalPlayers[i][j].money += Math.floor(finalPots[i] / finalPlayers[i].length);
+                finalPlayers[i][j].wonThisHand += Math.floor(finalPots[i] / finalPlayers[i].length);
             }
         }
         inHandPlayers.sort((a, b) => 10000 * (a.rank - b.rank) + 0.0001 * (b.wonThisHand - a.wonThisHand));
@@ -600,7 +597,23 @@ class Hand {
             console.log("in hand " + i.id + " " + i.name + " initial: " + i.moneyi + " final: " + i.money + " bth: " + i.betThisHandCopy + " wth " + i.wonThisHand);
         }
         for (let i of foldedPlayers) {
-            console.log("folded " + i.id + " " + i.name + " initial: " + i.moneyi + " final: " + i.money + " bth: " + i.betThisHandCopy + "wth " + i.wonThisHand);
+            console.log("folded " + i.id + " " + i.name + " initial: " + i.moneyi + " final: " + i.money + " bth: " + i.betThisHandCopy + " wth " + i.wonThisHand);
+        }
+        if (this.simulation) {
+            let sumCheck = 0;
+            for (let p of this.activePlayers) {
+                sumCheck += p.wonThisHand;
+                console.log(p.wonThisHand);
+                if (p.money < 0 || p.wonThisHand - (p.money - p.moneyi) > 1) {
+                    throw new Error("End of round check player " + p.id);
+                }
+            }
+            // rare valid exceptions to this rule
+            if (sumCheck > 0 || sumCheck < -2) {
+                console.log(sumCheck);
+                throw new Error("Incorrect sum of player wonThisHand");
+            }
+            return;
         }
         await this.showEndDisplay([...inHandPlayers, ...foldedPlayers]);
         return;
@@ -615,8 +628,8 @@ class Hand {
         let allInThreshold;
         let raiseThreshold;
         let callThreshold;
-        await this.delay(1000);
-        if (this.callAmount >= player.money + player.betThisHand) {
+        await this.delay(this.sleepTime);
+        if (this.callAmount >= player.money + player.betThisRound) {
             allInThreshold = 0.3
             if (human.rank > player.rank) {
                 allInThreshold += 0.2
@@ -665,7 +678,7 @@ class Hand {
                 if (randNum > allInThreshold) {
                     playerAction = ["allIn", player.money]
                 } else if (randNum > raiseThreshold) {
-                    playerAction = ["raise", Math.ceil((player.money + player.betThisHand - this.callAmount) * 0.2)]
+                    playerAction = ["raise", Math.ceil((player.money + player.betThisRound - this.callAmount) * 0.2)]
                 } else if (randNum > callThreshold) {
                     playerAction = ["checkcall", 0]
                 } else {
@@ -676,7 +689,7 @@ class Hand {
         }
         console.log(playerAction)
         this.showAction(player, playerAction);
-        await this.delay(1000);
+        await this.delay(this.sleepTime);
         Frontend.hideDiv(player.id + "action");
         return playerAction;
     }
@@ -686,7 +699,7 @@ class Hand {
     }
 
     showAction(p, action) {
-        if (action[0] != "fold" && (this.callAmount >= p.money + p.betThisRound || (action[0] == "raise" && raise[1] + this.callAmount == p.money + p.betThisRound))) {
+        if (action[0] != "fold" && (this.callAmount >= p.money + p.betThisRound || (action[0] == "raise" && action[1] + this.callAmount == p.money + p.betThisRound))) {
             Frontend.changeTextContent(p.id + "action", "All In! " + p.money.toString())
             Frontend.changeParagraphColor(p.id + "action", "yellow")
             Frontend.showDiv(p.id + "action")
@@ -1123,7 +1136,7 @@ class Orbit {
     constructor() {
         this.activePlayers = players.filter(player => player.active === true)
     }
-    async initialize() {
+    async initialize(simulation=false) {
         Frontend.hideDiv("allIn");
         Frontend.showDiv("raise");
         let prevLittle = players.length - 1;
@@ -1140,7 +1153,7 @@ class Orbit {
                 }
             }
             prevLittle = little;
-            let hand = new Hand(activeLittle);
+            let hand = new Hand(activeLittle, [], simulation);
             await hand.initialize();
             this.activePlayers = players.filter(player => player.active === true);
         }
@@ -1164,13 +1177,22 @@ class Orbit {
 // bettinground with input 5 cards facedown. Then iterate through bettingroudn with flop, turn
 // river. Then if players are stil "in" round show cards and calculate winner 
 
-
-
 function main() {
     startGame();
 }
 
-function startGame() {
+async function simulate() {
+    console.log("Start simulation");
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    let i = 0;
+    while (true) {
+        console.log("Start of game " + i.toString());
+        i++;
+        await startGame(true);
+    }
+}
+
+async function startGame(simulation=false) {
     Frontend.hideDiv("winnerContainer");
     Frontend.hideDiv("endDisplay");
     p1 = new Player(false, username, 'p1', localStorage.getItem("charSelect"), money=200);
@@ -1184,7 +1206,7 @@ function startGame() {
         Frontend.showDiv(p.id);
     }
     let orbit = new Orbit;
-    orbit.initialize();
+    await orbit.initialize(simulation);
 }
 
 class Actions extends Hand {
@@ -1320,4 +1342,5 @@ function test() {
     // Test.testGivenBoard([['S', '4'], ['D', '5'], ['C', '8'], ['S', '6'], ['H', '7']]);
 }
 // test();
+// simulate();
 main();

@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
 body{
     background-image: url(images/poker-table.jpg);
     background-position: center;
@@ -84,7 +86,7 @@ body{
 }
 #p4 {
     position: fixed;
-    top: 45%;
+    top: 43.5%;
     right: 30%;
 }
 #p5 {
@@ -420,8 +422,6 @@ body{
     width: 12vh;
 }
 
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-
 body {
     display:None;
     background-color: #0e0b16;
@@ -430,7 +430,7 @@ body {
     align-items: center;
     height: 100vh;
     margin: 0;
-    font-family: 'Press Start 2P', cursive;
+    font-family: cursive;
 }
 
 .winner-container {
